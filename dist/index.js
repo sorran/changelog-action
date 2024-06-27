@@ -51990,12 +51990,19 @@ const allTypes = [
 ]
 
 const rePrId = /#([0-9]+)/g
-const rePrEnding = /.*\(#([0-9]+)\)$/
+const rePrEnding = /.*\(#([0-9]+)\)$/g
 
 function hasPR(subject) {  
-  const _result = rePrEnding.test(subject)
+  const _result = rePrEnding.test(splitFirstLine(subject))
   core.info(`hasPR [${_result}] [${subject}]`)  
   return _result;
+}
+
+function splitFirstLine(input) {
+  // Split the string by newline characters
+  const lines = input.split('\n');
+  // Return the first line
+  return lines.length > 0 ? lines[0] : input;
 }
 
 function buildSubject ({ writeToFile, subject, author, authorUrl, owner, repo }) {
