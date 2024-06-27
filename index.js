@@ -19,7 +19,7 @@ const allTypes = [
   { types: ['doc', 'docs'], header: 'Documentation Changes', icon: ':memo:' },
   { types: ['style'], header: 'Code Style Changes', icon: ':art:' },
   { types: ['chore'], header: 'Chores', icon: ':wrench:' },
-  { types: ['other'], header: 'Other Changes', icon: ':flying_saucer:' },  
+  { types: ['other'], header: 'Other Changes', icon: ':flying_saucer:' }
 ]
 
 const rePrId = /#([0-9]+)/g
@@ -33,6 +33,7 @@ function buildSubject ({ writeToFile, subject, author, authorUrl, owner, repo })
   const _hasPR = hasPR(subject)
   const prs = []
   let output = subject
+  core.info(`hasPR ${_hasPR} ${subject}`)
   if (writeToFile) {
     const authorLine = author ? ` by [@${author}](${authorUrl})` : ''
     if (_hasPR) {
@@ -51,16 +52,15 @@ function buildSubject ({ writeToFile, subject, author, authorUrl, owner, repo })
         output += ` *(commit by [@${author}](${authorUrl}))*`
       }
     }
+  } else if (_hasPR) {
+    output = subject.replace(rePrEnding, (m, prId) => {
+      prs.push(prId)
+      return author ? `*(PR #${prId} by @${author})*` : `*(PR #${prId})*`
+    })
   } else {
-    if (_hasPR) {
-      output = subject.replace(rePrEnding, (m, prId) => {
-        prs.push(prId)
-        return author ? `*(PR #${prId} by @${author})*` : `*(PR #${prId})*`
-      })
-    } else {
-      output = author ? `${subject} *(commit by @${author})*` : subject
-    }
+    output = author ? `${subject} *(commit by @${author})*` : subject
   }
+  
   return {
     output,
     prs
@@ -200,7 +200,8 @@ async function main () {
       }
       core.info(`[OK] Commit ${commit.sha} of type ${cAst.type} - ${cAst.subject}`)
     } catch (err) {
-      if (hasPR(commit.commit.message)) {
+      const _hasPR = hasPR(commit.commit.message)
+      if (_hasPR) {
         commitsParsed.push({
           type: 'PR',
           subject: commit.commit.message,
@@ -210,7 +211,7 @@ async function main () {
           authorUrl: _.get(commit, 'author.html_url')
         })
         core.info(`[OK] Commit ${commit.sha} with PR - ${commit.commit.message}`)
-      } else if (includeInvalidCommits || hasPR) {
+      } else if (includeInvalidCommits) {
         commitsParsed.push({
           type: 'other',
           subject: commit.commit.message,
@@ -219,7 +220,7 @@ async function main () {
           author: _.get(commit, 'author.login'),
           authorUrl: _.get(commit, 'author.html_url')
         })
-        core.info(`[OK] Commit ${commit.sha} with invalid type, falling back to other - ${commit.commit.message}`)
+        core.info(`[OK] Commit ${commit.sha} with invalid type, falling back to other - ${commit.commit.message} (NOT A PR)`)
       } else {
         core.info(`[INVALID] Skipping commit ${commit.sha} as it doesn't follow conventional commit format.`)
       }
