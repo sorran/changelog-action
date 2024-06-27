@@ -38,40 +38,54 @@ function splitFirstLine(input) {
   return lines.length > 0 ? lines[0] : input;
 }
 
+function splitBody(input){
+  const lines = input.split('\n');
+  // Return the first line
+  if (lines.length <= 1){
+    return null;
+  }
+
+  lines.shift();
+  // Join the remaining lines back into a single string
+  return lines.join('\n');
+}
+
 function buildSubject ({ writeToFile, subject, author, authorUrl, owner, repo }) {
   const _hasPR = hasPR(subject)
   const prs = []
-  let output = subject
+  let header = splitFirstLine(subject)
+  let body = splitBody(subject)
   
   if (writeToFile) {
     const authorLine = author ? ` by [@${author}](${authorUrl})` : ''
     if (_hasPR) {
       const prMatch = subject.match(rePrEnding)
       const msgOnly = subject.slice(0, prMatch[0].length * -1)
-      output = msgOnly.replace(rePrId, (m, prId) => {
+      header = msgOnly.replace(rePrId, (m, prId) => {
         prs.push(prId)
         return `[#${prId}](${githubServerUrl}/${owner}/${repo}/pull/${prId})`
       })
-      output += `*(PR [#${prMatch[1]}](${githubServerUrl}/${owner}/${repo}/pull/${prMatch[1]})${authorLine})*`
+      header += `*(PR [#${prMatch[1]}](${githubServerUrl}/${owner}/${repo}/pull/${prMatch[1]})${authorLine})*`
     } else {
-      output = subject.replace(rePrId, (m, prId) => {
+      header = subject.replace(rePrId, (m, prId) => {
         return `[#${prId}](${githubServerUrl}/${owner}/${repo}/pull/${prId})`
       })
       if (author) {
-        output += ` *(commit by [@${author}](${authorUrl}))*`
+        header += ` *(commit by [@${author}](${authorUrl}))*`
       }
     }
   } else if (_hasPR) {
-    output = subject.replace(rePrEnding, (m, prId) => {
+    header = subject.replace(rePrEnding, (m, prId) => {
       prs.push(prId)
       return author ? `*(PR #${prId} by @${author})*` : `*(PR #${prId})*`
     })
   } else {
-    output = author ? `${subject} *(commit by @${author})*` : subject
+    header = author ? `${subject} *(commit by @${author})*` : subject
   }
   
   return {
-    output,
+    header,
+    body,
     prs
   }
 }
@@ -272,8 +286,8 @@ async function main () {
         owner,
         repo
       })
-      changesFile.push(`- due to [\`${breakChange.sha.substring(0, 7)}\`](${breakChange.url}) - ${subjectFile.output}:\n\n${body}\n`)
-      changesVar.push(`- due to [\`${breakChange.sha.substring(0, 7)}\`](${breakChange.url}) - ${subjectVar.output}:\n\n${body}\n`)
+      changesFile.push(`- due to [\`${breakChange.sha.substring(0, 7)}\`](${breakChange.url}) - ${subjectFile.header}:\n\n${body}\n`)
+      changesVar.push(`- due to [\`${breakChange.sha.substring(0, 7)}\`](${breakChange.url}) - ${subjectVar.header}:\n\n${body}\n`)
     }
     idx++
   }
@@ -329,9 +343,16 @@ async function main () {
         owner,
         repo
       })
-      changesFile.push(`- [\`${commit.sha.substring(0, 7)}\`](${commit.url}) - ${scope}${subjectFile.output}`)
-      changesVar.push(`- [\`${commit.sha.substring(0, 7)}\`](${commit.url}) - ${scope}${subjectVar.output}`)
+      changesFile.push(`- [\`${commit.sha.substring(0, 7)}\`](${commit.url}) - ${scope}${subjectFile.header}`)
+      changesVar.push(`- [\`${commit.sha.substring(0, 7)}\`](${commit.url}) - ${scope}${subjectVar.header}`)
 
+      if (subjectFile.body){
+        changesFile.push(```````\n${subjectFile.body}\n```````)
+      }
+      if (subjectVar.body){
+        changesVar.push(```````\n${subjectVar.body}\n```````)
+      }
+      
       if (includeRefIssues && subjectVar.prs.length > 0) {
         for (const prId of subjectVar.prs) {
           core.info(`Querying related issues for PR ${prId}...`)
