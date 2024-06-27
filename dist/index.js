@@ -51994,7 +51994,7 @@ const rePrEnding = /.*\(#([0-9]+)\)$/
 
 function hasPR(subject) {  
   const _result = rePrEnding.test(subject)
-  core.info(`hasPR ${_result} ${subject}`)  
+  core.info(`hasPR [${_result}] [${subject}]`)  
   return _result;
 }
 

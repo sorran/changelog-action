@@ -23,11 +23,11 @@ const allTypes = [
 ]
 
 const rePrId = /#([0-9]+)/g
-const rePrEnding = /.*\(#([0-9]+)\)$/
+const rePrEnding = /.*\(#([0-9]+)\)$/g
 
 function hasPR(subject) {  
   const _result = rePrEnding.test(subject)
-  core.info(`hasPR ${_result} ${subject}`)  
+  core.info(`hasPR [${_result}] [${subject}]`)  
   return _result;
 }
 
