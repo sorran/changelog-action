@@ -59,15 +59,15 @@ function buildSubject ({ writeToFile, subject, author, authorUrl, owner, repo })
   if (writeToFile) {
     const authorLine = author ? ` by [@${author}](${authorUrl})` : ''
     if (_hasPR) {
-      const prMatch = subject.match(rePrEnding)
-      const msgOnly = subject.slice(0, prMatch[0].length * -1)
+      const prMatch = header.match(rePrEnding)
+      const msgOnly = header.slice(0, prMatch[0].length * -1)
       header = msgOnly.replace(rePrId, (m, prId) => {
         prs.push(prId)
         return `[#${prId}](${githubServerUrl}/${owner}/${repo}/pull/${prId})`
       })
       header += `*(PR [#${prMatch[1]}](${githubServerUrl}/${owner}/${repo}/pull/${prMatch[1]})${authorLine})*`
     } else {
-      header = subject.replace(rePrId, (m, prId) => {
+      header = header.replace(rePrId, (m, prId) => {
         return `[#${prId}](${githubServerUrl}/${owner}/${repo}/pull/${prId})`
       })
       if (author) {
@@ -75,12 +75,12 @@ function buildSubject ({ writeToFile, subject, author, authorUrl, owner, repo })
       }
     }
   } else if (_hasPR) {
-    header = subject.replace(rePrEnding, (m, prId) => {
+    header = header.replace(rePrEnding, (m, prId) => {
       prs.push(prId)
       return author ? `*(PR #${prId} by @${author})*` : `*(PR #${prId})*`
     })
   } else {
-    header = author ? `${subject} *(commit by @${author})*` : subject
+    header = author ? `${header} *(commit by @${author})*` : header
   }
   
   return {
