@@ -30,12 +30,12 @@ function hasPR(subject) {
 }
 
 function buildSubject ({ writeToFile, subject, author, authorUrl, owner, repo }) {
-  const hasPR = hasPR(subject)
+  const _hasPR = hasPR(subject)
   const prs = []
   let output = subject
   if (writeToFile) {
     const authorLine = author ? ` by [@${author}](${authorUrl})` : ''
-    if (hasPR) {
+    if (_hasPR) {
       const prMatch = subject.match(rePrEnding)
       const msgOnly = subject.slice(0, prMatch[0].length * -1)
       output = msgOnly.replace(rePrId, (m, prId) => {
@@ -52,7 +52,7 @@ function buildSubject ({ writeToFile, subject, author, authorUrl, owner, repo })
       }
     }
   } else {
-    if (hasPR) {
+    if (_hasPR) {
       output = subject.replace(rePrEnding, (m, prId) => {
         prs.push(prId)
         return author ? `*(PR #${prId} by @${author})*` : `*(PR #${prId})*`
