@@ -347,12 +347,12 @@ async function main () {
       changesVar.push(`- [\`${commit.sha.substring(0, 7)}\`](${commit.url}) - ${scope}${subjectVar.header}`)
 
       if (subjectFile.body){
-        changesFile.push(```````\n${subjectFile.body}\n```````)
+        changesFile.push(`\`\`\`\n${subjectFile.body}\n\`\`\``)
       }
       if (subjectVar.body){
-        changesVar.push(```````\n${subjectVar.body}\n```````)
+        changesVar.push(`\`\`\`\n${subjectVar.body}\n\`\`\``)
       }
-      
+
       if (includeRefIssues && subjectVar.prs.length > 0) {
         for (const prId of subjectVar.prs) {
           core.info(`Querying related issues for PR ${prId}...`)
