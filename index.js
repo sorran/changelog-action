@@ -9,6 +9,7 @@ const { setTimeout } = require('timers/promises')
 const githubServerUrl = process.env.GITHUB_SERVER_URL || 'https://github.com'
 
 const allTypes = [
+  { types: ['PR'], header: 'PR Changes', icon: ':flashlight:' },
   { types: ['feat', 'feature'], header: 'New Features', icon: ':sparkles:' },
   { types: ['fix', 'bugfix'], header: 'Bug Fixes', icon: ':bug:', relIssuePrefix: 'fixes' },
   { types: ['perf'], header: 'Performance Improvements', icon: ':zap:' },
@@ -18,14 +19,18 @@ const allTypes = [
   { types: ['doc', 'docs'], header: 'Documentation Changes', icon: ':memo:' },
   { types: ['style'], header: 'Code Style Changes', icon: ':art:' },
   { types: ['chore'], header: 'Chores', icon: ':wrench:' },
-  { types: ['other'], header: 'Other Changes', icon: ':flying_saucer:' }
+  { types: ['other'], header: 'Other Changes', icon: ':flying_saucer:' },  
 ]
 
 const rePrId = /#([0-9]+)/g
 const rePrEnding = /\(#([0-9]+)\)$/
 
+function hasPR(subject) {
+  return rePrEnding.test(subject)
+}
+
 function buildSubject ({ writeToFile, subject, author, authorUrl, owner, repo }) {
-  const hasPR = rePrEnding.test(subject)
+  const hasPR = hasPR(subject)
   const prs = []
   let output = subject
   if (writeToFile) {
@@ -195,7 +200,17 @@ async function main () {
       }
       core.info(`[OK] Commit ${commit.sha} of type ${cAst.type} - ${cAst.subject}`)
     } catch (err) {
-      if (includeInvalidCommits) {
+      if (hasPR(commit.commit.message)) {
+        commitsParsed.push({
+          type: 'PR',
+          subject: commit.commit.message,
+          sha: commit.sha,
+          url: commit.html_url,
+          author: _.get(commit, 'author.login'),
+          authorUrl: _.get(commit, 'author.html_url')
+        })
+        core.info(`[OK] Commit ${commit.sha} with PR - ${commit.commit.message}`)
+      } else if (includeInvalidCommits || hasPR) {
         commitsParsed.push({
           type: 'other',
           subject: commit.commit.message,
