@@ -24,16 +24,19 @@ const allTypes = [
 
 const rePrId = /#([0-9]+)/g
 const rePrEnding = /\(#([0-9]+)\)$/
+const rePrEnding2 = /.*\(#([0-9]+)\)$/
 
-function hasPR(subject) {
-  return rePrEnding.test(subject)
+function hasPR(subject) {  
+  const _result = rePrEnding.test(subject)
+  core.info(`hasPR ${_result} ${subject} ${rePrEnding2.test(subject)}`)  
+  return _result;
 }
 
 function buildSubject ({ writeToFile, subject, author, authorUrl, owner, repo }) {
   const _hasPR = hasPR(subject)
   const prs = []
   let output = subject
-  core.info(`hasPR ${_hasPR} ${subject}`)
+  
   if (writeToFile) {
     const authorLine = author ? ` by [@${author}](${authorUrl})` : ''
     if (_hasPR) {
