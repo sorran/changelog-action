@@ -52020,53 +52020,51 @@ function splitBody(input){
   return lines.join('\n');
 }
 
+function filterFooter(input){
+  input = input.replace(reFooter, '');//drop any footer
+}
+
 function buildSubject ({ writeToFile, subject, author, authorUrl, owner, repo }) {
   const _hasPR = hasPR(subject)
   const prs = []
-  let enrichedSubject = subject
   
   if (writeToFile) {
     const authorLine = author ? ` by [@${author}](${authorUrl})` : ''
     if (_hasPR) {
-      const prMatch = enrichedSubject.match(rePrEnding)
-      const msgOnly = enrichedSubject.slice(0, prMatch[0].length * -1)
-      enrichedSubject = msgOnly.replace(rePrId, (m, prId) => {
+      const prMatch = subject.match(rePrEnding)
+      const msgOnly = subject.slice(0, prMatch[0].length * -1)
+      subject = msgOnly.replace(rePrId, (m, prId) => {
         prs.push(prId)
         return `[#${prId}](${githubServerUrl}/${owner}/${repo}/pull/${prId})`
       })
-      enrichedSubject += `*(PR [#${prMatch[1]}](${githubServerUrl}/${owner}/${repo}/pull/${prMatch[1]})${authorLine})*`
-      enrichedSubject = enrichedSubject.replace(reFooter, '');//drop any footer
+      subject += `*(PR [#${prMatch[1]}](${githubServerUrl}/${owner}/${repo}/pull/${prMatch[1]})${authorLine})*`
+      
     } else {
-      enrichedSubject = enrichedSubject.replace(rePrId, (m, jiraId) => {
+      subject = subject.replace(rePrId, (m, jiraId) => {
         return `[#${prId}](${jiraUrl}/${jiraId})`
       })
       if (author) {
-        enrichedSubject += ` *(commit by [@${author}](${authorUrl}))*`
+        subject += ` *(commit by [@${author}](${authorUrl}))*`
       }
     }
 
-    enrichedSubject = enrichedSubject.replace(reJira, (m, jiraId) => {
+    subject = subject.replace(reJira, (m, jiraId) => {
       return `[${jiraId}](${jiraUrl}/${jiraId})`
     })
 
 
   } else if (_hasPR) {
-    enrichedSubject = enrichedSubject.replace(rePrEnding, (m, prId) => {
+    subject = subject.replace(rePrEnding, (m, prId) => {
       prs.push(prId)
       return author ? `*(PR #${prId} by @${author})*` : `*(PR #${prId})*`
     })
-    enrichedSubject = enrichedSubject.replace(reFooter, '');//drop any footer
   } else {
-    enrichedSubject = author ? `${enrichedSubject} *(commit by @${author})*` : enrichedSubject
-  }
+    subject = author ? `${subject} *(commit by @${author})*` : subject
+  } 
   
-  
-  let header = splitFirstLine(enrichedSubject)
-  let body = splitBody(enrichedSubject)
 
   return {
-    header,
-    body,
+    subject,
     prs
   }
 }
@@ -52180,6 +52178,21 @@ async function main () {
   const commitsParsed = []
   const breakingChanges = []
   for (const commit of commits) {
+
+    if (hasPR(commit.commit.message)) {    
+      commitsParsed.push({
+        type: 'PR',
+        body: filterFooter(splitBody(commit.commit.message)),
+        subject: splitFirstLine(commit.commit.message),
+        sha: commit.sha,
+        url: commit.html_url,
+        author: _.get(commit, 'author.login'),
+        authorUrl: _.get(commit, 'author.html_url')
+      })
+      core.info(`[OK] Commit ${commit.sha} with PR - ${commit.commit.message}`)
+      continue
+    }
+
     try {
       const cAst = cc.toConventionalChangelogFormat(cc.parser(commit.commit.message))
       commitsParsed.push({
@@ -52204,18 +52217,8 @@ async function main () {
       }
       core.info(`[OK] Commit ${commit.sha} of type ${cAst.type} - ${cAst.subject}`)
     } catch (err) {
-      const _hasPR = hasPR(commit.commit.message)
-      if (_hasPR) {
-        commitsParsed.push({
-          type: 'PR',
-          subject: commit.commit.message,
-          sha: commit.sha,
-          url: commit.html_url,
-          author: _.get(commit, 'author.login'),
-          authorUrl: _.get(commit, 'author.html_url')
-        })
-        core.info(`[OK] Commit ${commit.sha} with PR - ${commit.commit.message}`)
-      } else if (includeInvalidCommits) {
+      
+      if (includeInvalidCommits) {
         commitsParsed.push({
           type: 'other',
           subject: commit.commit.message,
@@ -52324,59 +52327,63 @@ async function main () {
         owner,
         repo
       })
-      changesFile.push(`- [\`${commit.sha.substring(0, 7)}\`](${commit.url}) - ${scope}${subjectFile.header}`)
-      changesVar.push(`- [\`${commit.sha.substring(0, 7)}\`](${commit.url}) - ${scope}${subjectVar.header}`)
+      changesFile.push(`- [\`${commit.sha.substring(0, 7)}\`](${commit.url}) - ${scope}${subjectFile.subject}`)
+      changesVar.push(`- [\`${commit.sha.substring(0, 7)}\`](${commit.url}) - ${scope}${subjectVar.subject}`)
 
-      if (subjectFile.body){
-        changesFile.push(`\`\`\`\n${subjectFile.body}\n\`\`\``)
-      }
-      if (subjectVar.body){
-        changesVar.push(`\`\`\`\n${subjectVar.body}\n\`\`\``)
-      }
+      if(subjectVar.prs.length > 0){
+        if (commit.body){
+          changesFile.push(`\`\`\`\n${commit.body}\n\`\`\``)
+        }
+        if (commit.body){
+          changesVar.push(`\`\`\`\n${commit.body}\n\`\`\``)
+        }  
 
-      if (includeRefIssues && subjectVar.prs.length > 0) {
-        for (const prId of subjectVar.prs) {
-          core.info(`Querying related issues for PR ${prId}...`)
-          await setTimeout(500) // Make sure we don't go over GitHub API rate limits
-          try {
-            const issuesRaw = await gh.graphql(`
-              query relIssues ($owner: String!, $repo: String!, $prId: Int!) {
-                repository (owner: $owner, name: $repo) {
-                  pullRequest(number: $prId) {
-                    closingIssuesReferences(first: 50) {
-                      nodes {
-                        number
-                        url
-                        author {
-                          login
+        if (includeRefIssues && subjectVar.prs.length > 0) {
+          for (const prId of subjectVar.prs) {
+            core.info(`Querying related issues for PR ${prId}...`)
+            await setTimeout(500) // Make sure we don't go over GitHub API rate limits
+            try {
+              const issuesRaw = await gh.graphql(`
+                query relIssues ($owner: String!, $repo: String!, $prId: Int!) {
+                  repository (owner: $owner, name: $repo) {
+                    pullRequest(number: $prId) {
+                      closingIssuesReferences(first: 50) {
+                        nodes {
+                          number
                           url
+                          author {
+                            login
+                            url
+                          }
                         }
                       }
                     }
                   }
                 }
+              `, {
+                owner,
+                repo,
+                prId: parseInt(prId)
+              })
+              const relIssues = _.get(issuesRaw, 'repository.pullRequest.closingIssuesReferences.nodes')
+              for (const relIssue of relIssues) {
+                const authorLogin = _.get(relIssue, 'author.login')
+                if (authorLogin) {
+                  changesFile.push(`  - :arrow_lower_right: *${relIssuePrefix} issue [#${relIssue.number}](${relIssue.url}) opened by [@${authorLogin}](${relIssue.author.url})*`)
+                  changesVar.push(`  - :arrow_lower_right: *${relIssuePrefix} issue #${relIssue.number} opened by @${authorLogin}*`)
+                } else {
+                  changesFile.push(`  - :arrow_lower_right: *${relIssuePrefix} issue [#${relIssue.number}](${relIssue.url})*`)
+                  changesVar.push(`  - :arrow_lower_right: *${relIssuePrefix} issue #${relIssue.number}*`)
+                }
               }
-            `, {
-              owner,
-              repo,
-              prId: parseInt(prId)
-            })
-            const relIssues = _.get(issuesRaw, 'repository.pullRequest.closingIssuesReferences.nodes')
-            for (const relIssue of relIssues) {
-              const authorLogin = _.get(relIssue, 'author.login')
-              if (authorLogin) {
-                changesFile.push(`  - :arrow_lower_right: *${relIssuePrefix} issue [#${relIssue.number}](${relIssue.url}) opened by [@${authorLogin}](${relIssue.author.url})*`)
-                changesVar.push(`  - :arrow_lower_right: *${relIssuePrefix} issue #${relIssue.number} opened by @${authorLogin}*`)
-              } else {
-                changesFile.push(`  - :arrow_lower_right: *${relIssuePrefix} issue [#${relIssue.number}](${relIssue.url})*`)
-                changesVar.push(`  - :arrow_lower_right: *${relIssuePrefix} issue #${relIssue.number}*`)
-              }
+            } catch (err) {
+              core.warning(`Failed to query issues related to PR ${prId}. Skipping.`)
             }
-          } catch (err) {
-            core.warning(`Failed to query issues related to PR ${prId}. Skipping.`)
           }
         }
       }
+
+      
     }
     idx++
   }
