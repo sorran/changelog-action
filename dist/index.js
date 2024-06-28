@@ -52021,7 +52021,7 @@ function splitBody(input){
 }
 
 function filterFooter(input){
-  input = input.replace(reFooter, '');//drop any footer
+  return input.replace(reFooter, '');//drop any footer
 }
 
 function buildSubject ({ writeToFile, subject, author, authorUrl, owner, repo }) {
