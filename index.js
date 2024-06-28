@@ -7,6 +7,7 @@ const process = require('process')
 const { setTimeout } = require('timers/promises')
 
 const githubServerUrl = process.env.GITHUB_SERVER_URL || 'https://github.com'
+const jiraUrl = process.env.GITHUB_JIRA_URL || 'https://spaceapegames.atlassian.net/browse'
 
 const allTypes = [
   { types: ['PR'], header: 'PR Changes', icon: ':flashlight:' },
@@ -23,7 +24,8 @@ const allTypes = [
 ]
 
 const rePrId = /#([0-9]+)/g
-const rePrEnding = /.*\(#([0-9]+)\)$/g
+const rePrEnding = /.*\(#([0-9]+)\)$/
+const reJira = /\[([a-zA-Z]+-[0-9]+)\]/g
 
 function hasPR(subject) {  
   const _result = rePrEnding.test(splitFirstLine(subject))
@@ -67,13 +69,19 @@ function buildSubject ({ writeToFile, subject, author, authorUrl, owner, repo })
       })
       header += `*(PR [#${prMatch[1]}](${githubServerUrl}/${owner}/${repo}/pull/${prMatch[1]})${authorLine})*`
     } else {
-      header = header.replace(rePrId, (m, prId) => {
-        return `[#${prId}](${githubServerUrl}/${owner}/${repo}/pull/${prId})`
+      header = header.replace(rePrId, (m, jiraId) => {
+        return `[#${prId}](${jiraUrl}/${jiraId})`
       })
       if (author) {
         header += ` *(commit by [@${author}](${authorUrl}))*`
       }
     }
+
+    header = header.replace(reJira, (m, jiraId) => {
+      return `[${jiraId}](${jiraUrl}/${jiraId})`
+    })
+
+
   } else if (_hasPR) {
     header = header.replace(rePrEnding, (m, prId) => {
       prs.push(prId)
