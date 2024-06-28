@@ -24,7 +24,7 @@ const allTypes = [
 ]
 
 const rePrId = /#([0-9]+)/g
-const rePrEnding = /.*\(#([0-9]+)\)$/
+const rePrEnding = /\(#([0-9]+)\)$/
 const reJira = /\[([a-zA-Z]+-[0-9]+)\]/g
 const reFooter = /---[\s\S]*Reviewers are [\s\S]*/;
 
