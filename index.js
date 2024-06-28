@@ -26,6 +26,7 @@ const allTypes = [
 const rePrId = /#([0-9]+)/g
 const rePrEnding = /.*\(#([0-9]+)\)$/
 const reJira = /\[([a-zA-Z]+-[0-9]+)\]/g
+const reFooter = /---[\s\S]*Reviewers are [\s\S]*/;
 
 function hasPR(subject) {  
   const _result = rePrEnding.test(splitFirstLine(subject))
@@ -67,6 +68,7 @@ function buildSubject ({ writeToFile, subject, author, authorUrl, owner, repo })
         return `[#${prId}](${githubServerUrl}/${owner}/${repo}/pull/${prId})`
       })
       enrichedSubject += `*(PR [#${prMatch[1]}](${githubServerUrl}/${owner}/${repo}/pull/${prMatch[1]})${authorLine})*`
+      enrichedSubject = enrichedSubject.replace(reFooter, '');//drop any footer
     } else {
       enrichedSubject = enrichedSubject.replace(rePrId, (m, jiraId) => {
         return `[#${prId}](${jiraUrl}/${jiraId})`
@@ -86,9 +88,11 @@ function buildSubject ({ writeToFile, subject, author, authorUrl, owner, repo })
       prs.push(prId)
       return author ? `*(PR #${prId} by @${author})*` : `*(PR #${prId})*`
     })
+    enrichedSubject = enrichedSubject.replace(reFooter, '');//drop any footer
   } else {
     enrichedSubject = author ? `${enrichedSubject} *(commit by @${author})*` : enrichedSubject
   }
+  
   
   let header = splitFirstLine(enrichedSubject)
   let body = splitBody(enrichedSubject)
