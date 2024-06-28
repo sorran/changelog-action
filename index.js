@@ -55,42 +55,44 @@ function splitBody(input){
 function buildSubject ({ writeToFile, subject, author, authorUrl, owner, repo }) {
   const _hasPR = hasPR(subject)
   const prs = []
-  let header = splitFirstLine(subject)
-  let body = splitBody(subject)
+  let enrichedSubject = subject
   
   if (writeToFile) {
     const authorLine = author ? ` by [@${author}](${authorUrl})` : ''
     if (_hasPR) {
-      const prMatch = header.match(rePrEnding)
-      const msgOnly = header.slice(0, prMatch[0].length * -1)
-      header = msgOnly.replace(rePrId, (m, prId) => {
+      const prMatch = enrichedSubject.match(rePrEnding)
+      const msgOnly = enrichedSubject.slice(0, prMatch[0].length * -1)
+      enrichedSubject = msgOnly.replace(rePrId, (m, prId) => {
         prs.push(prId)
         return `[#${prId}](${githubServerUrl}/${owner}/${repo}/pull/${prId})`
       })
-      header += `*(PR [#${prMatch[1]}](${githubServerUrl}/${owner}/${repo}/pull/${prMatch[1]})${authorLine})*`
+      enrichedSubject += `*(PR [#${prMatch[1]}](${githubServerUrl}/${owner}/${repo}/pull/${prMatch[1]})${authorLine})*`
     } else {
-      header = header.replace(rePrId, (m, jiraId) => {
+      enrichedSubject = enrichedSubject.replace(rePrId, (m, jiraId) => {
         return `[#${prId}](${jiraUrl}/${jiraId})`
       })
       if (author) {
-        header += ` *(commit by [@${author}](${authorUrl}))*`
+        enrichedSubject += ` *(commit by [@${author}](${authorUrl}))*`
       }
     }
 
-    header = header.replace(reJira, (m, jiraId) => {
+    enrichedSubject = enrichedSubject.replace(reJira, (m, jiraId) => {
       return `[${jiraId}](${jiraUrl}/${jiraId})`
     })
 
 
   } else if (_hasPR) {
-    header = header.replace(rePrEnding, (m, prId) => {
+    enrichedSubject = enrichedSubject.replace(rePrEnding, (m, prId) => {
       prs.push(prId)
       return author ? `*(PR #${prId} by @${author})*` : `*(PR #${prId})*`
     })
   } else {
-    header = author ? `${header} *(commit by @${author})*` : header
+    enrichedSubject = author ? `${enrichedSubject} *(commit by @${author})*` : enrichedSubject
   }
   
+  let header = splitFirstLine(enrichedSubject)
+  let body = splitBody(enrichedSubject)
+
   return {
     header,
     body,
